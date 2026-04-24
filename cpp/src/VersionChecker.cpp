@@ -1,4 +1,4 @@
-#include "auto_updater/HttpVersionChecker.h"
+#include "auto_updater/VersionChecker.h"
 
 #include <QEventLoop>
 #include <QJsonDocument>

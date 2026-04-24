@@ -1,4 +1,4 @@
-#include "auto_updater/PlatformInstaller.h"
+#include "auto_updater/Installer.h"
 
 #include <QFileInfo>
 #include <QLoggingCategory>

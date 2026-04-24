@@ -1,4 +1,4 @@
-#include "auto_updater/HttpDownloader.h"
+#include "auto_updater/Downloader.h"
 
 #include <QCryptographicHash>
 #include <QDir>
