@@ -111,7 +111,7 @@ class AutoUpdater:
         logger.info("Checking for updates (current version: %s) …", current_version)
 
         update_info = self._checker.check_for_update(current_version)
-        if update_info is None:
+        if update_info is None or update_info.version == current_version:
             return UpdateStatus.CHECK_FAILED if self._check_was_error() else UpdateStatus.UP_TO_DATE
 
         if not auto_install:

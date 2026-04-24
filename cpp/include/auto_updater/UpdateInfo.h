@@ -35,13 +35,14 @@ struct UpdateInfo
     UpdateInfo(QString json)
     {
         QJsonDocument doc = QJsonDocument::fromJson(json.toUtf8());
-        auto obj = doc.object();
+        auto obj          = doc.object();
+
         version      = obj.value("version").toString();
-        releaseNotes = obj.value("release_notes").toString();
-        fileName     = obj.value("file_name").toString();
-        mandatory    = obj.value("mandatory").toBool();
         downloadUrl  = obj.value("download_url").toString();
         checksum     = obj.value("checksum").toString();
+        releaseNotes = obj.value("release_notes").toString();
+        mandatory    = obj.value("mandatory").toBool();
+        fileName     = obj.value("file_name").toString();
     }
 };
 

@@ -9,6 +9,7 @@ and the orchestrating AutoUpdater.
 from dataclasses import dataclass, field
 from typing import Optional
 from urllib.parse import urlparse
+import json
 
 
 @dataclass
@@ -41,6 +42,16 @@ class UpdateInfo:
     release_notes: str = ""
     mandatory: bool = False
     file_name: str = field(default="")
+
+    def __init__(self, content):
+        json_content = json.loads(content) if isinstance(content, str) else content
+
+        self.version       = json_content.get("version", "")
+        self.download_url  = json_content.get("download_url", "")
+        self.checksum      = json_content.get("checksum", "")
+        self.release_notes = json_content.get("release_notes", "")
+        self.mandatory     = json_content.get("mandatory", False)
+        self.file_name     = json_content.get("file_name", "")
 
     def __post_init__(self) -> None:
         if not self.file_name:

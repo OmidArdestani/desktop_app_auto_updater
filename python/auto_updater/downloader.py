@@ -54,6 +54,9 @@ class IDownloader(abc.ABC):
         """
 
 
+# ---------------------------------------------------
+# --------------------HttpDownloader-----------------
+# ---------------------------------------------------
 class HttpDownloader(IDownloader):
     """Downloads a file over HTTP/HTTPS using *requests* with streaming.
 
@@ -135,6 +138,78 @@ class HttpDownloader(IDownloader):
     @staticmethod
     def _cleanup(path: str) -> None:
         """Remove a partially-downloaded file, ignoring errors."""
+        try:
+            if os.path.exists(path):
+                os.remove(path)
+        except OSError:
+            pass
+
+
+# ---------------------------------------------------
+# -----------------LocalStorageDownloader------------
+# ---------------------------------------------------
+class LocalStorageDownloader(IDownloader):
+    """Downloads a file from a local path (copying it)."""
+
+    def download(
+        self,
+        url: str,
+        destination: str,
+        expected_checksum: str = None,
+        progress_callback: Optional[ProgressCallback] = None,
+    ) -> bool:
+        logger.info("Copying %s → %s", url, destination)
+        try:
+            if not os.access(url, os.R_OK):
+                logger.warning("Source file not accessible: %s", url)
+            destination_dir = os.path.dirname(destination) or "."
+            if not os.access(destination_dir, os.W_OK):
+                logger.warning("Destination directory not writable: %s", destination_dir)
+
+            with open(url, "rb") as src, open(destination, "wb") as dst:
+                sha256 = hashlib.sha256()
+                downloaded = 0
+                buffer_size = 1024 * 1024  # 1 MB chunks
+                while True:
+                    chunk = src.read(buffer_size)
+                    if not chunk:
+                        break
+
+                    dst.write(chunk)
+                    sha256.update(chunk)
+                    downloaded += len(chunk)
+
+                    if progress_callback:
+                        total = os.path.getsize(url)
+                        progress_callback(downloaded, total)
+                
+                data = sha256.digest()
+
+            if expected_checksum:
+                actual = data.hex()
+                if actual != expected_checksum.lower():
+                    logger.error(
+                        "Checksum mismatch: expected %s, got %s",
+                        expected_checksum,
+                        actual,
+                    )
+                    self._cleanup(destination)
+
+                    return False
+
+                logger.debug("Checksum verified: %s", actual)
+
+            logger.info("Copy complete: %s", destination)
+
+            return True
+        except Exception as exc:
+            logger.error("Copy failed: %s", exc)
+            self._cleanup(destination)
+            return False
+
+    @staticmethod
+    def _cleanup(path: str) -> None:
+        """Remove a partially-copied file, ignoring errors."""
         try:
             if os.path.exists(path):
                 os.remove(path)

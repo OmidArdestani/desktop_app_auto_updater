@@ -30,6 +30,8 @@ from packaging.version import Version
 
 from .update_info import UpdateInfo
 
+from PyQt5.QtCore import QUrl
+
 logger = logging.getLogger(__name__)
 
 
@@ -55,7 +57,9 @@ class IVersionChecker(abc.ABC):
             gracefully.
         """
 
-
+# ---------------------------------------------------
+# -----------------HttpVersionChecker----------------
+# ---------------------------------------------------
 class HttpVersionChecker(IVersionChecker):
     """Fetches a JSON version manifest from an HTTP/HTTPS or file URL.
 
@@ -123,3 +127,36 @@ class HttpVersionChecker(IVersionChecker):
         response = requests.get(self._manifest_url, timeout=self._timeout)
         response.raise_for_status()
         return response.json()
+
+
+# ---------------------------------------------------
+# -------------LocalStorageVersionChecker------------
+# ---------------------------------------------------
+class LocalStorageVersionChecker(IVersionChecker):
+    """Reads a JSON version manifest from a local file path.
+
+    Parameters
+    ----------
+    manifest_path:
+        Path to the JSON manifest file, e.g. ``"/path/to/version.json"``.
+    """
+
+    def __init__(self, manifest_path: str) -> None:
+        self._manifest_path = manifest_path
+
+    def check_for_update(self, current_version: str) -> Optional[UpdateInfo]:
+        """Read the manifest and return an :class:`UpdateInfo` when a newer
+        version is available, otherwise return *None*."""
+        try:
+            local_path = self._manifest_path
+            if self._manifest_path.startswith("file://"):
+                local_path = QUrl(self._manifest_path).toLocalFile()
+
+            with open(local_path, "r", encoding="utf-8") as fh:
+                manifest = fh.read()
+
+                return UpdateInfo(manifest)
+
+        except Exception as exc:
+            logger.error("Failed to read version manifest: %s", exc)
+            return None
