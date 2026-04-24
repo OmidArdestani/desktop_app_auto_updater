@@ -27,3 +27,5 @@ CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
 Makefile
+
+.vscode/settings.json
