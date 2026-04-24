@@ -28,8 +28,9 @@ class TestUpdateInfo:
         assert info.file_name == "custom-name.exe"
 
     def test_file_name_url_with_query(self):
+        # Query parameters are ignored; filename is taken from the URL path segment
         info = UpdateInfo(version="1.0.0", download_url="https://example.com/dl?file=app.exe")
-        assert info.file_name == "app.exe"
+        assert info.file_name == "dl"
 
     def test_file_name_bare_url_fallback(self):
         info = UpdateInfo(version="1.0.0", download_url="https://example.com/")

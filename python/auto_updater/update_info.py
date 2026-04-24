@@ -8,6 +8,7 @@ and the orchestrating AutoUpdater.
 
 from dataclasses import dataclass, field
 from typing import Optional
+from urllib.parse import urlparse
 
 
 @dataclass
@@ -43,5 +44,7 @@ class UpdateInfo:
 
     def __post_init__(self) -> None:
         if not self.file_name:
-            # Derive from URL, stripping query strings / fragments
-            self.file_name = self.download_url.rstrip("/").split("/")[-1].split("?")[0] or "installer"
+            # Use urlparse for correct path/query separation
+            path = urlparse(self.download_url).path.rstrip("/")
+            name = path.split("/")[-1] if path else ""
+            self.file_name = name or "installer"
