@@ -10,16 +10,15 @@
 #include <QTimer>
 #include <QUrl>
 #include <QVersionNumber>
+#include <QFile>
 
 Q_LOGGING_CATEGORY(lcVersionChecker, "auto_updater.version_checker")
 
 namespace AutoUpdater {
 
-HttpVersionChecker::HttpVersionChecker(const QString &manifestUrl, int timeoutMs)
-    : m_manifestUrl(manifestUrl)
-    , m_timeoutMs(timeoutMs)
-{}
-
+// ---------------------------------------------------
+// -----------------HttpVersionChecker----------------
+// ---------------------------------------------------
 std::optional<UpdateInfo> HttpVersionChecker::checkForUpdate(const QString &currentVersion)
 {
     QNetworkAccessManager manager;
@@ -101,4 +100,22 @@ std::optional<UpdateInfo> HttpVersionChecker::checkForUpdate(const QString &curr
     return info;
 }
 
+// ---------------------------------------------------
+// -------------LocalStorageVersionChecker------------
+// ---------------------------------------------------
+std::optional<UpdateInfo> LocalStorageVersionChecker::checkForUpdate(const QString &currentVersion)
+{
+    QString localPath = m_manifestUrl;
+
+    if (localPath.startsWith("file://", Qt::CaseInsensitive))
+        localPath = QUrl(localPath).toLocalFile();
+
+    QFile file(localPath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        qCWarning(lcVersionChecker) << "Cannot open local manifest:" << localPath;
+        return {};
+    }
+
+    return UpdateInfo(file.readAll());
+}
 } // namespace AutoUpdater

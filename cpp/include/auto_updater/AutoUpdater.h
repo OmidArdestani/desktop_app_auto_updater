@@ -1,8 +1,8 @@
 #pragma once
 
-#include "IVersionChecker.h"
-#include "IDownloader.h"
-#include "IInstaller.h"
+#include "VersionChecker.h"
+#include "Downloader.h"
+#include "Installer.h"
 #include "UpdateStatus.h"
 
 #include <memory>

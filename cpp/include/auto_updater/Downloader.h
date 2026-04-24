@@ -62,7 +62,7 @@ public:
 class HttpDownloader : public IDownloader
 {
 public:
-    explicit HttpDownloader(int timeoutMs = 30000);
+    explicit HttpDownloader(int timeoutMs = 30000) : m_timeoutMs(timeoutMs){ }
 
     bool download(const QString   &url,
                   const QString   &destination,
@@ -76,4 +76,29 @@ private:
 };
 
 
+
+/**
+ * @brief Downloads a file over HTTP/HTTPS using Qt's networking stack with
+ *        streaming and optional SHA-256 checksum verification.
+ *
+ * Mirrors the Python LocalStorageDownloader class exactly.
+ *
+ *
+ * @param timeoutMs  Connection/read timeout in milliseconds. Defaults to
+ *                   30 000.
+ */
+class LocalStorageDownloader : public IDownloader
+{
+public:
+    explicit LocalStorageDownloader(int timeoutMs = 30000) : m_timeoutMs(timeoutMs){ }
+
+    bool download(const QString   &url,
+                  const QString   &destination,
+                  const QString   &expectedChecksum = {},
+                  ProgressCallback progressCallback  = nullptr) override;
+
+    static void cleanup(const QString &path);
+private:
+    int m_timeoutMs;
+};
 } // namespace AutoUpdater

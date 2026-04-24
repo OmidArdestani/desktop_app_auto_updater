@@ -16,10 +16,9 @@ Q_LOGGING_CATEGORY(lcDownloader, "auto_updater.downloader")
 
 namespace AutoUpdater {
 
-HttpDownloader::HttpDownloader(int timeoutMs)
-    : m_timeoutMs(timeoutMs)
-{}
-
+// ---------------------------------------------------
+// ---------------------HttpDownloader----------------
+// ---------------------------------------------------
 bool HttpDownloader::download(const QString   &url,
                               const QString   &destination,
                               const QString   &expectedChecksum,
@@ -107,4 +106,69 @@ void HttpDownloader::cleanup(const QString &path)
         QFile::remove(path);
 }
 
+// ---------------------------------------------------
+// -----------------LocalStorageDownloader------------
+// ---------------------------------------------------
+bool LocalStorageDownloader::download(const QString& source,
+                                      const QString& destination,
+                                      const QString& expectedChecksum,
+                                      ProgressCallback progressCallback)
+{
+    QFile src(source);
+    if (!src.open(QIODevice::ReadOnly)) {
+        qCWarning(lcDownloader) << "Cannot open source:" << source;
+        return false;
+    }
+
+    QFile dst(destination);
+    if (!dst.open(QIODevice::WriteOnly)) {
+        qCWarning(lcDownloader) << "Cannot open destination:" << destination;
+        return false;
+    }
+
+    const qint64 totalSize = src.size();
+    qint64 copied = 0;
+
+    QCryptographicHash hash(QCryptographicHash::Sha256);
+
+    const qint64 bufferSize = 1024 * 1024; // 1 MB chunks
+    QByteArray buffer;
+    buffer.resize(bufferSize);
+
+    while (!src.atEnd()) {
+        const qint64 read = src.read(buffer.data(), bufferSize);
+        if (read <= 0)
+            break;
+
+        dst.write(buffer.constData(), read);
+        hash.addData(buffer.constData(), read);
+
+        copied += read;
+
+        if (progressCallback)
+            progressCallback(copied, totalSize);
+    }
+
+    src.close();
+    dst.close();
+
+    if (!expectedChecksum.isEmpty()) {
+        const QString actual = QString::fromLatin1(hash.result().toHex());
+        if (actual.compare(expectedChecksum, Qt::CaseInsensitive) != 0) {
+            qCWarning(lcDownloader)
+                << "Checksum mismatch: expected" << expectedChecksum << "got" << actual;
+            cleanup(destination);
+            return false;
+        }
+    }
+
+    qCInfo(lcDownloader) << "Local copy complete:" << destination;
+    return true;
+}
+
+void LocalStorageDownloader::cleanup(const QString &path)
+{
+    if (QFile::exists(path))
+        QFile::remove(path);
+}
 } // namespace AutoUpdater

@@ -1,7 +1,7 @@
 #include "auto_updater/AutoUpdater.h"
-#include "auto_updater/HttpVersionChecker.h"
-#include "auto_updater/HttpDownloader.h"
-#include "auto_updater/PlatformInstaller.h"
+#include "auto_updater/VersionChecker.h"
+#include "auto_updater/Downloader.h"
+#include "auto_updater/Installer.h"
 
 #include <QDir>
 #include <QLoggingCategory>
@@ -31,7 +31,7 @@ UpdateStatus AutoUpdater::checkAndUpdate(const QString   &currentVersion,
         << "Checking for updates (current version:" << currentVersion << ")…";
 
     const auto updateInfo = m_checker->checkForUpdate(currentVersion);
-    if (!updateInfo.has_value())
+    if (!updateInfo.has_value() || updateInfo->version == currentVersion)
         return UpdateStatus::UpToDate;
 
     if (!autoInstall) {

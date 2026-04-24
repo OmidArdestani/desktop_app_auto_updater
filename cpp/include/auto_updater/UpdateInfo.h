@@ -1,5 +1,7 @@
 #pragma once
 
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QString>
 
 namespace AutoUpdater {
@@ -23,11 +25,24 @@ namespace AutoUpdater {
 struct UpdateInfo
 {
     QString version;
-    QString downloadUrl;
-    QString checksum;
     QString releaseNotes;
     bool    mandatory = false;
     QString fileName;
+    QString downloadUrl{};
+    QString checksum{};
+
+    UpdateInfo(){}
+    UpdateInfo(QString json)
+    {
+        QJsonDocument doc = QJsonDocument::fromJson(json.toUtf8());
+        auto obj = doc.object();
+        version      = obj.value("version").toString();
+        releaseNotes = obj.value("release_notes").toString();
+        fileName     = obj.value("file_name").toString();
+        mandatory    = obj.value("mandatory").toBool();
+        downloadUrl  = obj.value("download_url").toString();
+        checksum     = obj.value("checksum").toString();
+    }
 };
 
 } // namespace AutoUpdater
