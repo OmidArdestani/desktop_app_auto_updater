@@ -53,23 +53,19 @@ bool PlatformInstaller::install(const QString &installerPath)
     }
 #endif
 
-    qCInfo(lcInstaller) << "Running installer:" << program << args;
+    qCInfo(lcInstaller) << "Launching installer in detached mode:" << program << args;
 
-    QProcess process;
-    process.start(program, args);
-
-    if (!process.waitForFinished(-1)) {
-        qCWarning(lcInstaller) << "Installer process failed to finish:"
-                               << process.errorString();
+    qint64 processId = 0;
+    const bool started = QProcess::startDetached(program, args, QString(), &processId);
+    if (!started) {
+        qCWarning(lcInstaller) << "Failed to launch detached installer process."
+                       << "Program:" << program
+                       << "Args:" << args
+                       << "Possible causes: file not found, insufficient permissions, or invalid path.";
         return false;
     }
 
-    const int exitCode = process.exitCode();
-    if (exitCode != 0) {
-        qCWarning(lcInstaller) << "Installer exited with code" << exitCode;
-        return false;
-    }
-
+    qCInfo(lcInstaller) << "Installer launched with PID:" << processId;
     return true;
 }
 

@@ -15,11 +15,13 @@ public:
     virtual ~IInstaller() = default;
 
     /**
-     * @brief Launch the installer at @p installerPath and wait for it to
-     *        complete.
+     * @brief Launch the installer at @p installerPath as a detached process.
+     *
+     * Implementations must start the installer as an independent process so
+     * the host app can exit while installation continues.
      *
      * @param installerPath  Absolute path to the downloaded installer file.
-     * @return true   if the installer reported success (exit code 0).
+     * @return true   if the installer process was launched successfully.
      * @return false  otherwise.
      */
     virtual bool install(const QString &installerPath) = 0;
@@ -37,8 +39,7 @@ public:
  * - macOS    – runs .pkg via the system `installer` command.
  * - Linux    – runs .deb via dpkg, .rpm via rpm, or .sh via bash.
  *
- * Uses QProcess to launch the installer process and wait for it to finish,
- * mirroring the Python subprocess.run() calls.
+ * Uses detached process launching so the installer can outlive the host app.
  */
 class PlatformInstaller : public IInstaller
 {
