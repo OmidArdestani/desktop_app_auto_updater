@@ -2,7 +2,7 @@
 installer.py
 ------------
 Abstractions and platform-specific implementations for launching an
-installer executable and waiting for it to complete.
+installer executable so it can continue running after the current app exits.
 
 Supported platforms
 ~~~~~~~~~~~~~~~~~~~
@@ -19,8 +19,9 @@ import abc
 import logging
 import os
 import platform
+import shutil
 import subprocess
-import sys
+import tempfile
 from typing import List
 
 logger = logging.getLogger(__name__)
@@ -31,7 +32,7 @@ class IInstaller(abc.ABC):
 
     @abc.abstractmethod
     def install(self, installer_path: str) -> bool:
-        """Launch the installer at *installer_path* and wait for completion.
+        """Launch the installer at *installer_path* independently.
 
         Parameters
         ----------
@@ -41,9 +42,30 @@ class IInstaller(abc.ABC):
         Returns
         -------
         bool
-            *True* if the installer reported success (exit code 0), *False*
-            otherwise.
+            *True* if the installer process was started successfully,
+            *False* otherwise.
         """
+
+
+def _launch_detached(cmd: List[str], *, windows: bool = False) -> bool:
+    logger.info("Starting installer independently: %s", " ".join(cmd))
+
+    try:
+        kwargs = {"close_fds": True}
+        if windows:
+            creationflags  = getattr(subprocess, "DETACHED_PROCESS", 0)
+            creationflags |= getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+            if creationflags:
+                kwargs["creationflags"] = creationflags
+        else:
+            kwargs["start_new_session"] = True
+
+        process = subprocess.Popen(cmd, **kwargs)
+        logger.info("Installer launched with pid %s.", process.pid)
+        return True
+    except OSError as exc:
+        logger.error("Failed to launch installer: %s", exc)
+        return False
 
 
 class WindowsInstaller(IInstaller):
@@ -57,21 +79,7 @@ class WindowsInstaller(IInstaller):
             # NSIS / Inno Setup style silent install
             cmd = [installer_path, "/S"]
 
-        return self._run(cmd)
-
-    @staticmethod
-    def _run(cmd: List[str]) -> bool:
-        logger.info("Running installer: %s", " ".join(cmd))
-        try:
-            result = subprocess.run(cmd, check=False)
-            if result.returncode != 0:
-                logger.error("Installer exited with code %d.", result.returncode)
-                return False
-            return True
-        except OSError as exc:
-            logger.error("Failed to launch installer: %s", exc)
-            return False
-
+        return _launch_detached(cmd, windows=True)
 
 class MacOSInstaller(IInstaller):
     """Installs macOS ``.pkg`` or ``.dmg`` packages."""
@@ -87,11 +95,12 @@ class MacOSInstaller(IInstaller):
 
     def _install_pkg(self, pkg_path: str) -> bool:
         cmd = ["sudo", "installer", "-pkg", pkg_path, "-target", "/"]
-        return self._run(cmd)
+        return _launch_detached(cmd)
 
     def _install_dmg(self, dmg_path: str) -> bool:
-        # Mount the image, find a .pkg inside, install, then unmount
-        mount_point = "/Volumes/_auto_updater_mount"
+        # Mount the image, copy the first .pkg outside the volume, install it,
+        # then unmount the image so the installer can keep running standalone.
+        mount_point = tempfile.mkdtemp(prefix="auto_updater_mount_")
         try:
             subprocess.run(
                 ["hdiutil", "attach", dmg_path, "-mountpoint", mount_point, "-nobrowse"],
@@ -101,7 +110,8 @@ class MacOSInstaller(IInstaller):
             for entry in os.listdir(mount_point):
                 if entry.endswith(".pkg"):
                     pkg = os.path.join(mount_point, entry)
-                    return self._install_pkg(pkg)
+                    detached_pkg = self._copy_pkg_to_temp(pkg)
+                    return self._install_pkg(detached_pkg)
             logger.error("No .pkg found in DMG: %s", dmg_path)
             return False
         except subprocess.CalledProcessError as exc:
@@ -109,17 +119,36 @@ class MacOSInstaller(IInstaller):
             return False
         finally:
             subprocess.run(["hdiutil", "detach", mount_point], check=False)
+            shutil.rmtree(mount_point, ignore_errors=True)
 
     @staticmethod
-    def _run(cmd: List[str]) -> bool:
-        logger.info("Running installer: %s", " ".join(cmd))
-        try:
-            result = subprocess.run(cmd, check=False)
-            return result.returncode == 0
-        except OSError as exc:
-            logger.error("Failed to launch installer: %s", exc)
-            return False
+    def _copy_pkg_to_temp(pkg_path: str) -> str:
+        """
+        Copy a package file or directory to a temporary location.
+        
+        This method creates a temporary directory and copies the provided package
+        (file or directory) into it, preserving the original filename/dirname.
+        
+        Args:
+            pkg_path (str): The path to the package file or directory to be copied.
+        
+        Returns:
+            str: The full path to the copied package in the temporary directory.
+        
+        Note:
+            Cleanup of the temporary directory is the caller's responsibility.
+            Consider implementing a cleanup mechanism (e.g., using context managers
+            or atexit handlers) to ensure temporary resources are properly removed.
+        """
+        temp_dir = tempfile.mkdtemp(prefix="auto_updater_pkg_")
+        destination = os.path.join(temp_dir, os.path.basename(pkg_path))
 
+        if os.path.isdir(pkg_path):
+            shutil.copytree(pkg_path, destination)
+        else:
+            shutil.copy2(pkg_path, destination)
+
+        return destination
 
 class LinuxInstaller(IInstaller):
     """Installs Linux packages (``.deb``, ``.rpm``) or shell scripts."""
@@ -136,14 +165,7 @@ class LinuxInstaller(IInstaller):
             logger.error("Unsupported Linux installer format: %s", ext)
             return False
 
-        logger.info("Running installer: %s", " ".join(cmd))
-        try:
-            result = subprocess.run(cmd, check=False)
-            return result.returncode == 0
-        except OSError as exc:
-            logger.error("Failed to launch installer: %s", exc)
-            return False
-
+        return _launch_detached(cmd)
 
 def create_platform_installer() -> IInstaller:
     """Return the appropriate :class:`IInstaller` for the current OS.
