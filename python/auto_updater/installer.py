@@ -72,14 +72,12 @@ class WindowsInstaller(IInstaller):
     """Runs Windows installer packages (``.exe`` or ``.msi``)."""
 
     def install(self, installer_path: str) -> bool:
-        ext = os.path.splitext(installer_path)[1].lower()
-        if ext == ".msi":
-            cmd: List[str] = ["msiexec", "/i", installer_path, "/qb", "/norestart"]
-        else:
-            # NSIS / Inno Setup style silent install
-            cmd = [installer_path, "/S"]
-
-        return _launch_detached(cmd, windows=True)
+        
+        QProcess.startDetached(
+                "cmd.exe",
+                ["/c", "start", "", installer_path]
+            )
+        return True
 
 class MacOSInstaller(IInstaller):
     """Installs macOS ``.pkg`` or ``.dmg`` packages."""
