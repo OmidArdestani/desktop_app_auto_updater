@@ -25,6 +25,10 @@ from .installer import IInstaller, create_platform_installer
 from .update_info import UpdateInfo
 from .version_checker import HttpVersionChecker, IVersionChecker
 
+from PyQt5.QtWidgets import (
+    QProgressDialog
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -120,6 +124,23 @@ class AutoUpdater:
 
         return self._download_and_install(update_info, progress_callback)
 
+    def install_update_with_dlg(self, parent, current_version):
+        # Create a progress dialog
+        progress_dialog = QProgressDialog("Updating application...", None, 0, 100, parent)
+        progress_dialog.setWindowModality(QtCore.Qt.WindowModal)
+        progress_dialog.setWindowTitle("Updating...")
+        progress_dialog.setMinimumDuration(0)
+        progress_dialog.setValue(0)
+
+        def update_progress(downloaded, total):
+            if total > 0:
+                percentage = int((downloaded / total) * 100)
+                progress_dialog.setValue(percentage)
+
+        progress_dialog.show()
+        self.check_and_update(current_version, True, update_progress)
+        progress_dialog.close()
+       
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
