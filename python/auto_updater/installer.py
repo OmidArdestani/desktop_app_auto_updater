@@ -24,6 +24,8 @@ import subprocess
 import tempfile
 from typing import List
 
+from PyQt5.QtCore import QProcess
+
 logger = logging.getLogger(__name__)
 
 
